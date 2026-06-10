@@ -1,158 +1,205 @@
-"""CLI: seo-overview-install — đăng ký MCP server vào Claude Desktop App và Claude Code."""
+"""seo-overview-install — configures Claude Desktop, Claude Code, plugin dir, and shell function."""
 
 from __future__ import annotations
 
 import json
 import os
-import pathlib
 import platform
 import shutil
+import subprocess
 import sys
 import tempfile
+import time
+from pathlib import Path
 
 
-# ── Config paths ────────────────────────────────────────────────────────────
+_BOLD = "\033[1m"
+_GREEN = "\033[32m"
+_YELLOW = "\033[33m"
+_RESET = "\033[0m"
+_DIV = "━" * 55
 
-def _desktop_config_path() -> pathlib.Path:
+PLUGIN_DEST = Path.home() / ".local/share/seo-overview/plugin"
+
+
+def _ok(msg: str) -> None:
+    print(f"  {_BOLD}{_GREEN}✅ {msg}{_RESET}")
+
+
+def _warn(msg: str) -> None:
+    print(f"  {_YELLOW}⚠️  {msg}{_RESET}")
+
+
+def _step(n: int, total: int, msg: str) -> None:
+    print(f"\n{_BOLD}{n}/{total} {msg}{_RESET}")
+
+
+def _get_binary() -> str:
+    return shutil.which("seo-overview-server") or "seo-overview-server"
+
+
+def _get_desktop_config_path() -> Path:
     system = platform.system()
     if system == "Darwin":
-        return pathlib.Path.home() / "Library" / "Application Support" / "Claude" / "claude_desktop_config.json"
+        return Path.home() / "Library/Application Support/Claude/claude_desktop_config.json"
     if system == "Windows":
-        # Fallback an toàn nếu APPDATA không được set (CI, container, profile lỗi)
-        appdata = os.environ.get("APPDATA") or str(pathlib.Path.home() / "AppData" / "Roaming")
-        return pathlib.Path(appdata) / "Claude" / "claude_desktop_config.json"
-    return pathlib.Path.home() / ".config" / "Claude" / "claude_desktop_config.json"
+        appdata = os.environ.get("APPDATA") or str(Path.home() / "AppData/Roaming")
+        return Path(appdata) / "Claude/claude_desktop_config.json"
+    return Path.home() / ".config/Claude/claude_desktop_config.json"
 
 
-def _claude_code_settings_path() -> pathlib.Path:
-    return pathlib.Path.home() / ".claude" / "settings.json"
-
-
-def _server_command() -> str:
-    cmd = shutil.which("seo-overview-server")
-    return cmd if cmd else "seo-overview-server"
-
-
-# ── JSON helpers ─────────────────────────────────────────────────────────────
-
-def _read_json(path: pathlib.Path) -> dict:
+def _read_json(path: Path) -> dict:
     if not path.exists():
         return {}
     try:
         return json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
-        # Dùng timestamp để tránh overwrite backup cũ
-        import time
         ts = int(time.time())
         backup = path.parent / f"{path.stem}.json.bak.{ts}"
         path.rename(backup)
-        print(f"   ⚠ File lỗi JSON — backup: {backup}")
+        _warn(f"File JSON lỗi — backup: {backup}")
         return {}
 
 
-def _write_json(path: pathlib.Path, data: dict) -> None:
-    """Ghi JSON atomic: ghi ra .tmp rồi rename để tránh corrupt nếu bị interrupt."""
+def _write_json(path: Path, data: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     content = json.dumps(data, ensure_ascii=False, indent=2)
-    # Ghi ra file tạm cùng thư mục để rename atomic (cùng filesystem)
-    fd, tmp_path = tempfile.mkstemp(dir=path.parent, prefix=".tmp-", suffix=".json")
+    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".tmp-", suffix=".json")
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             f.write(content)
-        os.replace(tmp_path, path)  # atomic trên POSIX; best-effort trên Windows
+        os.replace(tmp, path)
     except Exception:
-        # Cleanup file tạm nếu có lỗi
         try:
-            os.unlink(tmp_path)
+            os.unlink(tmp)
         except OSError:
             pass
         raise
 
 
-def _build_server_entry(server_cmd: str, sa_json: str) -> dict:
-    """Build MCP server entry. Chỉ thêm env key nếu sa_json có giá trị."""
-    entry: dict = {"command": server_cmd}
+def _build_server_entry(binary: str) -> dict:
+    entry: dict = {"command": binary}
+    sa_json = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON", "")
     if sa_json:
         entry["env"] = {"GOOGLE_SERVICE_ACCOUNT_JSON": sa_json}
     return entry
 
 
-# ── Step 1: Claude Desktop App ───────────────────────────────────────────────
-
-def _install_desktop_app(server_cmd: str, sa_json: str) -> tuple[bool, pathlib.Path]:
-    path = _desktop_config_path()
+def _configure_desktop(binary: str) -> None:
+    path = _get_desktop_config_path()
     config = _read_json(path)
-    mcp = config.setdefault("mcpServers", {})
-    already = "seo-overview" in mcp
-    mcp["seo-overview"] = _build_server_entry(server_cmd, sa_json)
+    config.setdefault("mcpServers", {})["seo-overview"] = _build_server_entry(binary)
     _write_json(path, config)
-    return already, path
+    _ok("claude_desktop_config.json")
 
 
-# ── Step 2: Claude Code global MCP ──────────────────────────────────────────
-
-def _install_claude_code_mcp(server_cmd: str, sa_json: str) -> tuple[bool, pathlib.Path]:
-    path = _claude_code_settings_path()
+def _configure_claude_code(binary: str) -> None:
+    path = Path.home() / ".claude/settings.json"
     config = _read_json(path)
-    mcp = config.setdefault("mcpServers", {})
-    already = "seo-overview" in mcp
-    mcp["seo-overview"] = _build_server_entry(server_cmd, sa_json)
+    config.setdefault("mcpServers", {})["seo-overview"] = _build_server_entry(binary)
     _write_json(path, config)
-    return already, path
+    _ok("~/.claude/settings.json")
 
 
-# ── Main ─────────────────────────────────────────────────────────────────────
+def _find_plugin_source() -> Path:
+    """Tìm thư mục chứa skills/agents/.claude-plugin — installed wheel hoặc dev mode."""
+    # Installed wheel: hatchling force-include đặt files vào src/seo_overview_plugin/
+    installed = Path(__file__).parent / "seo_overview_plugin"
+    if (installed / "skills").exists():
+        return installed
+    # Dev mode: files nằm ở repo root (cha của src/)
+    dev = Path(__file__).parent.parent
+    if (dev / "skills").exists():
+        return dev
+    raise FileNotFoundError(
+        "Không tìm thấy plugin files (skills/, agents/, .claude-plugin/). "
+        "Chạy 'pip install seo-overview' hoặc 'pip install -e .' trước."
+    )
+
+
+def _install_plugin_dir() -> Path:
+    src = _find_plugin_source()
+    PLUGIN_DEST.mkdir(parents=True, exist_ok=True)
+
+    for name in ("skills", "agents", ".claude-plugin"):
+        s = src / name
+        if s.exists():
+            shutil.copytree(s, PLUGIN_DEST / name, dirs_exist_ok=True)
+
+    mcp_json = src / ".mcp.json"
+    if mcp_json.exists():
+        shutil.copy(mcp_json, PLUGIN_DEST / ".mcp.json")
+
+    _ok(f"Plugin files → {PLUGIN_DEST}")
+    return PLUGIN_DEST
+
+
+def _add_shell_function(plugin_dir: Path) -> None:
+    shell = Path(os.environ.get("SHELL", "")).name
+    rc_file = Path.home() / (".zshrc" if shell == "zsh" else ".bashrc")
+    marker = "seo-overview: SEO-Overview skill"
+
+    func = (
+        f"\n# {marker}\n"
+        f'function claude() {{ command claude --plugin-dir "{plugin_dir}" "$@"; }}\n'
+    )
+
+    text = rc_file.read_text(encoding="utf-8") if rc_file.exists() else ""
+    if marker not in text:
+        with rc_file.open("a", encoding="utf-8") as f:
+            f.write(func)
+        _ok(f"Shell function → {rc_file.name} (claude --plugin-dir auto-loaded)")
+    else:
+        _ok(f"Shell function đã có trong {rc_file.name}")
+
+
+def _restart_claude() -> None:
+    if platform.system() != "Darwin":
+        _warn("Restart Claude Desktop thủ công để áp dụng thay đổi.")
+        return
+    subprocess.run(["osascript", "-e", 'tell application "Claude" to quit'],
+                   capture_output=True)
+    time.sleep(3)
+    subprocess.run(["open", "-a", "Claude"], capture_output=True)
+    _ok("Claude Desktop đã restart")
+
 
 def main() -> None:
-    server_cmd = _server_command()
+    print(f"\n{_BOLD}{_DIV}{_RESET}")
+    print(f"{_BOLD}  SEO Overview MCP Plugin — Install{_RESET}")
+    print(f"{_BOLD}{_DIV}{_RESET}")
+
+    binary = _get_binary()
+    print(f"\n  Binary: {binary}")
+
+    _step(1, 4, "Cấu hình Claude Desktop MCP server...")
+    _configure_desktop(binary)
+
+    _step(2, 4, "Cấu hình Claude Code CLI...")
+    _configure_claude_code(binary)
+
+    _step(3, 4, "Cài đặt plugin files...")
+    plugin_dir = _install_plugin_dir()
+
+    _step(4, 4, "Thêm shell function + restart Claude Desktop...")
+    _add_shell_function(plugin_dir)
+    _restart_claude()
+
     sa_json = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON", "")
-
-    print()
-    print("Đang đăng ký MCP server seo-overview...")
-    print()
-
-    # 1. Claude Desktop App
-    desktop_already, desktop_path = _install_desktop_app(server_cmd, sa_json)
-    verb = "cập nhật" if desktop_already else "thêm mới"
-    print(f"✓ [1/2] Claude Desktop App: {verb}")
-    print(f"        {desktop_path}")
-    print()
-
-    # 2. Claude Code global MCP
-    cc_already, cc_path = _install_claude_code_mcp(server_cmd, sa_json)
-    verb = "cập nhật" if cc_already else "thêm mới"
-    print(f"✓ [2/2] Claude Code — MCP server: {verb}")
-    print(f"        {cc_path}")
-    print()
-
-    print("─" * 56)
-    print()
-    print("Bước tiếp theo:")
-    print()
+    print(f"\n{_BOLD}{_GREEN}{_DIV}{_RESET}")
+    print(f"{_BOLD}{_GREEN}  Cài đặt hoàn tất!{_RESET}")
+    print(f"{_BOLD}{_GREEN}{_DIV}{_RESET}")
+    print(f"\n  MCP tools → hoạt động ngay trong Claude Desktop + Claude Code")
 
     if not sa_json:
-        print("  ⚠ GOOGLE_SERVICE_ACCOUNT_JSON chưa được set.")
-        print("    Thêm thủ công vào file config sau khi cài:")
-        print()
-        print("    Claude Desktop App:")
-        print(f"      {desktop_path}")
-        print('      → mcpServers["seo-overview"]["env"]["GOOGLE_SERVICE_ACCOUNT_JSON"]')
-        print()
-        print("    Claude Code:")
-        print(f"      {cc_path}")
-        print('      → mcpServers["seo-overview"]["env"]["GOOGLE_SERVICE_ACCOUNT_JSON"]')
-        print()
+        print(f"\n  {_YELLOW}⚠️  GOOGLE_SERVICE_ACCOUNT_JSON chưa được set.{_RESET}")
+        print(f"  Thêm vào claude_desktop_config.json hoặc ~/.claude/settings.json:")
+        print(f'    mcpServers → seo-overview → env → "GOOGLE_SERVICE_ACCOUNT_JSON": "..."')
 
-    print("  Claude Desktop App:")
-    print("    • Tắt hoàn toàn (Cmd+Q trên Mac) rồi mở lại")
-    print("    • Biểu tượng 🔧 trong chat = MCP đã hoạt động")
-    print()
-    print("  Claude Code:")
-    print("    • MCP tools hoạt động ngay, không cần làm gì thêm")
-    print()
-    print("  Dùng slash command:")
-    print("    /seo-overview:SEO-Overview")
-    print()
+    print(f"\n{_BOLD}  Để dùng /seo-overview:SEO-Overview trong Cowork (1 lần duy nhất):{_RESET}")
+    print(f"  Cowork → Settings → Plugins → Upload → chọn file seo-overview.plugin")
+    print(f"  (Tải tại: https://github.com/minhdo01011990-glitch/seo-overview/releases/latest)")
+    print(f"\n{_BOLD}{_GREEN}{_DIV}{_RESET}\n")
 
     sys.exit(0)
 

@@ -1,74 +1,109 @@
-# SEO Overview — Claude MCP Plugin
+# SEO Overview MCP Plugin
 
-Tự động tạo báo cáo SEO tổng quan từ dữ liệu Google Drive. Plugin MCP cho Claude Desktop App.
+Tự động tạo báo cáo SEO tổng quan từ dữ liệu Google Drive.  
+Chạy trên **Claude Desktop App** — hỗ trợ lệnh `/seo-overview:SEO-Overview` trong Cowork.  
+Xuất báo cáo dạng **DOCX · HTML · PPTX · PNG**.
 
-## Tính năng
+---
 
-- Quét Google Drive folder hoặc local folder, tự động nhận dạng 13 loại dữ liệu SEO
-- Phân tích và tạo báo cáo với 8 sections: Search Behavior, Ranking Analysis, Organic Traffic, SEO Audit, Traffic by URL Groups, ChatGPT Brand Mentions, ChatGPT Citation Domains, Website Overview
-- Xuất báo cáo dạng **DOCX**, **HTML** (interactive charts), **PPTX**, **PNG**
-- Upload kết quả lên Google Drive
+## Cài Đặt
 
-## Cài đặt nhanh
-
-```bash
-bash <(curl -fsSL https://github.com/minhdo01011990-glitch/seo-overview/releases/latest/download/install.sh)
-```
-
-Hoặc cài từ PyPI:
+### Bước 1 — Chạy 1 lệnh terminal
 
 ```bash
-pip install seo-overview
-seo-overview-install
+bash <(curl -sSL https://raw.githubusercontent.com/minhdo01011990-glitch/seo-overview/main/install.sh)
 ```
 
-Sau đó tắt và mở lại Claude Desktop — biểu tượng 🔧 xuất hiện là MCP hoạt động.
+Script tự động:
+1. Phát hiện Python 3.11+ và cài `seo-overview` từ PyPI
+2. Cấu hình MCP server vào `claude_desktop_config.json` (Claude Desktop)
+3. Cấu hình MCP server vào `~/.claude/settings.json` (Claude Code CLI)
+4. Cài plugin files vào `~/.local/share/seo-overview/plugin/`
+5. Thêm shell function vào `~/.zshrc` / `~/.bashrc` để tự load `--plugin-dir`
+6. Restart Claude Desktop (macOS)
 
-## Cài thủ công (dev)
+### Bước 2 — Upload plugin vào Cowork (1 lần duy nhất)
 
-```bash
-git clone https://github.com/minhdo01011990-glitch/seo-overview
-cd seo-overview
-python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
-seo-overview-install
-```
+1. Tải file [`seo-overview.plugin`](https://github.com/minhdo01011990-glitch/seo-overview/releases/latest) từ trang Releases
+2. Mở Claude Desktop → **Cowork → Settings → Plugins → Upload** → chọn file vừa tải
 
-## Cấu hình Google Service Account
+Sau bước này, gõ `/seo-overview:SEO-Overview` trong Cowork là dùng được.
 
-Plugin cần Service Account để đọc Google Sheets và Google Drive.
+---
+
+## Yêu Cầu
+
+- Python **3.11+** ([tải tại đây](https://python.org/downloads/)) hoặc [`uv`](https://docs.astral.sh/uv/)
+- Claude Desktop App (Mac hoặc Windows)
+- Google Service Account JSON — để đọc Google Sheets / Drive ([hướng dẫn](https://cloud.google.com/iam/docs/service-accounts-create))
+
+---
+
+## Cấu Hình Google Service Account
+
+Plugin cần Service Account để đọc Google Sheets và Google Drive folder.
 
 1. Tạo Service Account tại [Google Cloud Console](https://console.cloud.google.com/)
-2. Bật APIs: **Google Sheets API** và **Google Drive API**
-3. Tạo JSON key và set biến môi trường:
+2. Bật: **Google Sheets API** + **Google Drive API**
+3. Tạo JSON key → thêm vào config:
 
+Trong `claude_desktop_config.json` (Claude Desktop):
+```json
+{
+  "mcpServers": {
+    "seo-overview": {
+      "command": "seo-overview-server",
+      "env": {
+        "GOOGLE_SERVICE_ACCOUNT_JSON": "{\"type\":\"service_account\",...}"
+      }
+    }
+  }
+}
+```
+
+Hoặc set biến môi trường trước khi chạy `seo-overview-install`:
 ```bash
 export GOOGLE_SERVICE_ACCOUNT_JSON='{"type":"service_account",...}'
+seo-overview-install
 ```
 
-Hoặc trỏ đến file:
+---
 
-```bash
-export GOOGLE_SERVICE_ACCOUNT_JSON=/path/to/service-account.json
-```
+## Sử Dụng
 
-Sau đó chạy lại `seo-overview-install` để cập nhật config.
-
-## Sử dụng
-
-Trong Claude Desktop, gõ slash command:
+Trong Claude Desktop → Cowork, gõ:
 
 ```
 /seo-overview:SEO-Overview
 ```
 
-Plugin sẽ hướng dẫn từng bước:
+Claude hướng dẫn từng bước:
 1. Nhập domain cần phân tích
-2. Cung cấp dữ liệu (quét folder hoặc từng file riêng)
-3. Review outline báo cáo
-4. Chọn format xuất (DOCX/HTML/PPTX/PNG)
+2. Cung cấp dữ liệu — quét Google Drive folder tự động hoặc nhập từng file riêng
+3. Xác nhận danh sách file (bỏ trùng lặp / file không nhận dạng)
+4. Review outline báo cáo
+5. Chọn định dạng xuất (DOCX / HTML / PPTX / PNG)
 
-## 13 loại dữ liệu hỗ trợ
+---
+
+## Cập Nhật Lên Phiên Bản Mới
+
+### Bước 1 — Cập nhật MCP server
+
+```bash
+bash <(curl -sSL https://raw.githubusercontent.com/minhdo01011990-glitch/seo-overview/main/install.sh)
+```
+
+### Bước 2 — Cập nhật plugin Cowork
+
+*(Chỉ cần khi SKILL.md hoặc AGENT.md thay đổi — xem Release Notes)*
+
+1. Tải `seo-overview.plugin` mới từ [Releases](https://github.com/minhdo01011990-glitch/seo-overview/releases/latest)
+2. Cowork → Settings → Plugins → **xóa plugin cũ** → **Upload** file mới
+
+---
+
+## 13 Loại Dữ Liệu Hỗ Trợ
 
 | data_type | Mô tả |
 |---|---|
@@ -86,11 +121,20 @@ Plugin sẽ hướng dẫn từng bước:
 | `analysis_comments` | Nhận xét của analyst |
 | `my_domain` | Domain cần phân tích |
 
-## Yêu cầu
+---
 
-- Python 3.9+
-- Claude Desktop App
-- Google Service Account (để đọc Google Sheets/Drive)
+## MCP Tools
+
+| Tool | Mô tả |
+|------|-------|
+| `create_seo_session` | Khởi tạo session mới |
+| `scan_seo_folder` | Quét folder, tự nhận dạng data type từng file |
+| `load_seo_input` | Load một data type từ Sheets / file / text |
+| `get_session_summary` | Xem trạng thái session + sections sẵn sàng |
+| `generate_analysis_outline` | Preview key insights trước khi xuất |
+| `generate_seo_report` | Xuất báo cáo DOCX / HTML / PPTX / PNG |
+
+---
 
 ## License
 
