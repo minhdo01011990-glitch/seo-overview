@@ -1,0 +1,18 @@
+{
+  "name": "seo-overview",
+  "version": "0.1.0",
+  "description": "Tự động tạo báo cáo SEO tổng quan từ dữ liệu Google Drive. Hỗ trợ xuất DOCX, HTML, PPTX, PNG.",
+  "author": {
+    "name": "minhdo01011990-glitch",
+    "email": "minhdo01011990@gmail.com"
+  },
+  "repository": "https://github.com/minhdo01011990-glitch/seo-overview",
+  "license": "MIT",
+  "skills": [
+    "skills/SEO-Overview"
+  ],
+  "agents": [
+    "agents/seo-analyst"
+  ],
+  "mcp": ".mcp.json"
+}

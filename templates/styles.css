@@ -1,0 +1,11 @@
+/*
+ * styles.css — được include vào report.html.j2 qua {% include 'styles.css' %}
+ * Giữ file này chỉ chứa CSS bổ sung không có trong template inline <style>.
+ * Design system: xem report.html.j2 <style> block.
+ */
+
+/* Override nếu cần cho các output embed (DOCX preview, email...) */
+@media print {
+  body { background: #fff !important; }
+  .card { box-shadow: none !important; }
+}

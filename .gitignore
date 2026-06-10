@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+*.xml
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Secrets / credentials
+*.json.key
+service-account*.json
+.env
+.env.*
+
+# Session data
+~/.seo-overview/
+
+# Build artifacts
+*.plugin
+*.whl
+*.tar.gz
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Logs
+*.log

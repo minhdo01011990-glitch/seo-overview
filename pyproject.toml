@@ -1,0 +1,65 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "seo-overview"
+version = "0.1.0"
+description = "Claude Code plugin: tự động tạo báo cáo SEO tổng quan từ dữ liệu Google Drive."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "minhdo01011990-glitch", email = "minhdo01011990@gmail.com" }]
+requires-python = ">=3.9"
+keywords = ["seo", "report", "claude", "mcp", "google-drive"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "fastmcp>=0.9",
+    "gspread>=6.0",
+    "gspread-dataframe>=4.0",
+    "google-auth>=2.0",
+    "google-auth-httplib2>=0.2",
+    "google-api-python-client>=2.0",
+    "pandas>=2.0",
+    "openpyxl>=3.1",
+    "pyarrow>=14.0",
+    "matplotlib>=3.7",
+    "python-docx>=1.1",
+    "python-pptx>=0.6",
+    "Pillow>=9.0",
+    "jinja2>=3.1",
+    "pydantic>=2.5",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/minhdo01011990-glitch/seo-overview"
+Repository = "https://github.com/minhdo01011990-glitch/seo-overview"
+Issues = "https://github.com/minhdo01011990-glitch/seo-overview/issues"
+
+[project.scripts]
+seo-overview-server = "src.server:run"
+seo-overview-install = "src.install:main"
+seo-overview-plugin-dir = "src.plugin_dir:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"skills"         = "src/seo_overview_plugin/skills"
+"agents"         = "src/seo_overview_plugin/agents"
+"templates"      = "src/seo_overview_plugin/templates"
+".claude-plugin" = "src/seo_overview_plugin/.claude-plugin"
+".mcp.json"      = "src/seo_overview_plugin/.mcp.json"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]

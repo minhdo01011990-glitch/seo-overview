@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ report.title }}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: '#004aef',
+            'brand-dark': '#0038c7',
+            yellow: '#ffce00',
+            cyan: '#0dd1ff',
+            green: '#00ffaa',
+            ink: { 50:'#f0f4ff', 100:'#dde3ff', 200:'#bbc6f7', 300:'#8f9de0',
+                   400:'#6070bb', 500:'#3d4d99', 600:'#2a3880', 700:'#1a2560',
+                   800:'#0e1540', 900:'#070c24' },
+            danger: '#dc2626',
+            warn: '#d97706',
+            ok: '#059669',
+          },
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            display: ['"Space Grotesk"', 'sans-serif'],
+          },
+          boxShadow: { soft: '0 2px 8px 0 rgba(0,74,239,.08)' },
+          borderRadius: { card: '16px' },
+        }
+      }
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --blue:   #004aef;
+      --yellow: #ffce00;
+      --cyan:   #0dd1ff;
+      --green:  #00ffaa;
+      --bg:     #eef1ff;
+      --surface:#ffffff;
+      --border: #dde3ff;
+      --ink-900:#0e1540;
+      --ink-600:#3d4d99;
+      --ink-400:#8090c8;
+    }
+    body { background:var(--bg); font-family:'Plus Jakarta Sans',sans-serif; }
+    h1,h2,h3,.font-display { font-family:'Space Grotesk',sans-serif; }
+
+    .card { background:var(--surface); border-radius:16px; border:1px solid var(--border); box-shadow:0 2px 8px 0 rgba(0,74,239,.07); }
+
+    .section-label {
+      display:inline-flex; align-items:center; gap:6px;
+      font-family:'Space Grotesk',sans-serif;
+      font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.1em;
+      color:var(--blue); margin-bottom:14px;
+    }
+    .section-label::before { content:'✦'; color:var(--yellow); font-size:10px; }
+
+    .metric-val   { font-family:'Space Grotesk',sans-serif; font-size:30px; font-weight:700; color:var(--ink-900); line-height:1; }
+    .metric-label { font-size:11px; color:var(--ink-400); margin-top:5px; }
+
+    .badge-danger { background:#fff0f0; color:#c81e1e; font-size:10px; font-weight:700; padding:2px 8px; border-radius:99px; border:1px solid #fcd0d0; }
+    .badge-warn   { background:#fffbe6; color:#96620a; font-size:10px; font-weight:700; padding:2px 8px; border-radius:99px; border:1px solid #fde68a; }
+    .badge-ok     { background:#e6fff5; color:#037a56; font-size:10px; font-weight:700; padding:2px 8px; border-radius:99px; border:1px solid #a7f3d0; }
+    .badge-brand  { background:#eef1ff; color:var(--blue); font-size:10px; font-weight:700; padding:2px 8px; border-radius:99px; border:1px solid var(--border); }
+
+    /* severity badges for audit */
+    .badge-critical { background:#fff0f0; color:#c81e1e; font-size:10px; font-weight:700; padding:2px 8px; border-radius:99px; border:1px solid #fcd0d0; }
+    .badge-high     { background:#fff7ed; color:#9a3412; font-size:10px; font-weight:700; padding:2px 8px; border-radius:99px; border:1px solid #fed7aa; }
+    .badge-medium   { background:#fffbe6; color:#96620a; font-size:10px; font-weight:700; padding:2px 8px; border-radius:99px; border:1px solid #fde68a; }
+    .badge-low      { background:#e6fff5; color:#037a56; font-size:10px; font-weight:700; padding:2px 8px; border-radius:99px; border:1px solid #a7f3d0; }
+
+    .analysis-box { background:#f4f6ff; border-left:3px solid var(--blue); padding:16px; border-radius:0 12px 12px 0; }
+    .analysis-box p { margin-bottom:10px; font-size:13px; line-height:1.7; color:#2a3880; }
+    .analysis-box p:last-child { margin-bottom:0; }
+    .analysis-box .label { font-family:'Space Grotesk',sans-serif; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:var(--blue); opacity:.7; margin-bottom:10px; }
+
+    table thead tr { background:#f4f6ff; }
+    table th { font-family:'Space Grotesk',sans-serif; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:var(--blue); padding:10px 12px; text-align:left; }
+    table td { font-size:13px; color:var(--ink-900); padding:9px 12px; border-top:1px solid var(--border); }
+    .highlight-row td { background:#eef1ff; font-weight:600; }
+
+    /* KPI grid */
+    .kpi-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:12px; margin:16px 0; }
+    .kpi-card { background:#f4f6ff; border-radius:12px; padding:14px 16px; text-align:center; border:1px solid var(--border); }
+    .kpi-value { font-family:'Space Grotesk',sans-serif; font-size:24px; font-weight:700; color:var(--blue); display:block; }
+    .kpi-label { font-size:11px; color:var(--ink-400); text-transform:uppercase; letter-spacing:.05em; margin-top:4px; }
+
+    .section-heading { display:flex; align-items:center; gap:10px; margin-bottom:14px; }
+    .section-heading .num {
+      font-family:'Space Grotesk',sans-serif;
+      background:var(--blue); color:#fff;
+      font-size:12px; font-weight:700;
+      width:26px; height:26px; border-radius:8px;
+      display:flex; align-items:center; justify-content:center; flex-shrink:0;
+    }
+    .section-heading h2 { font-family:'Space Grotesk',sans-serif; font-size:16px; font-weight:700; color:var(--ink-900); margin:0; }
+
+    .report-header { background:var(--blue); border-radius:20px; padding:28px 32px; color:#fff; position:relative; overflow:hidden; }
+    .report-header::before { content:''; position:absolute; top:-60px; right:-60px; width:220px; height:220px; border:40px solid rgba(255,255,255,.08); border-radius:50%; }
+    .report-header::after  { content:''; position:absolute; bottom:-80px; right:100px; width:180px; height:180px; border:30px solid rgba(255,255,255,.06); border-radius:50%; }
+
+    .seongon-badge { display:inline-flex; align-items:center; gap:5px; background:rgba(255,255,255,.15); border:1px solid rgba(255,255,255,.25); border-radius:99px; padding:3px 10px; font-family:'Space Grotesk',sans-serif; font-size:10px; font-weight:700; letter-spacing:.08em; color:#fff; margin-bottom:14px; }
+    .seongon-badge .star { color:var(--yellow); }
+
+    /* Chart figures (embedded PNG from matplotlib) */
+    .chart-figure { margin:16px 0; }
+    .chart-figure img { max-width:100%; border-radius:12px; border:1px solid var(--border); }
+    .chart-figure figcaption { font-size:11px; color:var(--ink-400); margin-top:6px; text-align:center; }
+
+    /* Missing section */
+    .missing-section { border:1px dashed var(--border); background:#fafbff; }
+    .missing-section h2 { color:var(--ink-400); }
+    .missing-list { list-style:none; padding:0; }
+    .missing-list li { padding:6px 0; border-bottom:1px solid var(--border); font-size:13px; }
+    .missing-reason { color:var(--ink-400); font-size:12px; }
+
+    @media print {
+      body { background:#fff; }
+      .report-header { border-radius:0; }
+    }
+  </style>
+</head>
+<body class="font-sans min-h-screen py-10 px-4" style="color:var(--ink-900)">
+
+<!-- HEADER -->
+<div class="max-w-5xl mx-auto mb-8">
+  <div class="report-header">
+    <div class="flex items-start justify-between flex-wrap gap-4" style="position:relative;z-index:1">
+      <div>
+        <div class="seongon-badge"><span class="star">✦</span> SEO Overview Report</div>
+        <h1 class="font-display text-3xl font-bold text-white mb-1">{{ report.my_domain }}</h1>
+        <p style="font-size:13px;color:rgba(255,255,255,.7);margin-top:4px">{{ report.title }}</p>
+      </div>
+      <div class="text-right" style="flex-shrink:0">
+        <div style="font-size:11px;color:rgba(255,255,255,.6)">Tạo ngày {{ report.generated_at }}</div>
+        <div style="font-size:11px;color:rgba(255,255,255,.6);margin-top:3px">
+          {{ report.sections | length }} sections · {{ report.missing_sections | length }} bỏ qua
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN CONTENT -->
+<div class="max-w-5xl mx-auto">
+
+  {% for section in report.sections %}
+  <div class="mb-6">
+    <div class="section-heading">
+      <div class="num">{{ loop.index }}</div>
+      <h2>{{ section.title }}</h2>
+    </div>
+    <div class="card p-5">
+      <!-- KPIs + tables + text từ data_processor -->
+      <div>{{ section.content_html | safe }}</div>
+
+      <!-- Charts (embedded PNG từ matplotlib) -->
+      {% if section.charts %}
+      <div class="mt-4 grid grid-cols-1 gap-4 {% if section.charts | length > 1 %}md:grid-cols-2{% endif %}">
+        {% for chart in section.charts %}
+        <figure class="chart-figure">
+          <img src="data:image/png;base64,{{ chart.image_b64 }}"
+               alt="{{ chart.title | default(section.title) }}"
+               loading="lazy">
+          {% if chart.title is defined %}
+          <figcaption>{{ chart.title }}</figcaption>
+          {% endif %}
+        </figure>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <!-- Key insights -->
+      {% if section.key_insights %}
+      <div class="analysis-box mt-4">
+        <div class="label">Key Insights</div>
+        {% for insight in section.key_insights %}
+        <p>{{ insight }}</p>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+
+  <!-- Sections bị bỏ qua do thiếu dữ liệu -->
+  {% if report.missing_sections %}
+  <div class="mb-6">
+    <div class="section-heading">
+      <h2 style="font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700;color:var(--ink-400);margin:0">
+        Sections bỏ qua — thiếu dữ liệu
+      </h2>
+    </div>
+    <div class="card p-5 missing-section">
+      <ul class="missing-list">
+        {% for s in report.missing_sections %}
+        <li>
+          <strong>{{ s.title }}</strong>
+          <span class="missing-reason"> — {{ s.reason }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+
+<!-- FOOTER -->
+<div class="max-w-5xl mx-auto pb-8 mt-4">
+  <div style="background:var(--blue);border-radius:16px;padding:20px 28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700;color:#fff;letter-spacing:-.01em">SEO Overview Plugin</span>
+      <span style="color:rgba(255,255,255,.4);font-size:12px">·</span>
+      <span style="font-size:11px;color:rgba(255,255,255,.6)">Tạo tự động từ dữ liệu thực tế</span>
+    </div>
+    <div style="font-size:11px;color:rgba(255,255,255,.5);text-align:right">
+      {{ report.generated_at }}<br>
+      {{ report.my_domain }}
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
