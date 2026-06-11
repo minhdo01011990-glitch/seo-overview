@@ -199,18 +199,21 @@ def scan_seo_folder(session_id: str, folder_url: str) -> dict:
         is_supported = mime in SUPPORTED_MIME_TYPES or ext in SUPPORTED_EXTENSIONS or (
             not mime and ext in SUPPORTED_EXTENSIONS
         )
+        detected_type = detect_data_type_from_filename(f["name"])
+        # Ảnh không match pattern nào → auto-gán img_overview
+        if detected_type is None and ext in IMAGE_EXTENSIONS:
+            detected_type = "img_overview"
         enriched.append({
             **f,
-            "detected_type": detect_data_type_from_filename(f["name"]),
+            "detected_type": detected_type,
             "detected_domain": detect_domain_from_filename(f["name"], known_domains),
             "supported": is_supported,
         })
 
-    # Pass 2: tìm trùng lặp theo data_type
-    type_to_names: dict[str, list[str]] = defaultdict(list)
+    # Pass 2: tìm trùng lặp theo tên file (exact same filename)
+    name_counts: dict[str, int] = defaultdict(int)
     for f in enriched:
-        if f["detected_type"]:
-            type_to_names[f["detected_type"]].append(f["name"])
+        name_counts[f["name"]] += 1
 
     result_files: list[dict] = []
     for idx, f in enumerate(enriched, 1):
@@ -219,13 +222,12 @@ def scan_seo_folder(session_id: str, folder_url: str) -> dict:
             ext = Path(f["name"]).suffix
             status = "unsupported"
             reason = f"Định dạng '{ext}' không hỗ trợ. Hỗ trợ: Google Sheets, .csv, .xlsx, ảnh (.png/.jpg/.gif/.bmp...), .md, .html, .txt."
+        elif name_counts[f["name"]] > 1:
+            status = "duplicate"
+            reason = "Tên file trùng — file này xuất hiện nhiều lần trong folder."
         elif dtype is None:
             status = "unknown"
             reason = "Không nhận dạng được data type từ tên file. Cần chỉ định thủ công."
-        elif len(type_to_names[dtype]) > 1:
-            status = "duplicate"
-            others = [n for n in type_to_names[dtype] if n != f["name"]]
-            reason = f"Trùng data type '{dtype}' với: {', '.join(others)}. Chỉ nên load 1 file."
         else:
             status = "ok"
             reason = None
@@ -242,9 +244,9 @@ def scan_seo_folder(session_id: str, folder_url: str) -> dict:
 
     # Tổng hợp issues
     issues: list[str] = []
-    for dtype, names in type_to_names.items():
-        if len(names) > 1:
-            issues.append(f"⚠ Trùng lặp '{dtype}': {', '.join(names)}")
+    duplicate_names = [name for name, count in name_counts.items() if count > 1]
+    if duplicate_names:
+        issues.append(f"⚠ Tên file trùng: {', '.join(duplicate_names)}")
     unknowns = [f["name"] for f in result_files if f["status"] == "unknown"]
     if unknowns:
         issues.append(f"⚠ Không nhận dạng: {', '.join(unknowns)}")

@@ -93,14 +93,14 @@ Tạo bảng HTML tương tác với 7 cột:
    `status="duplicate"` → "⚠ TRÙNG với [tên file khác]";
    `status="unknown"` → "✎ không nhận dạng được";
    `status="unsupported"` → "✗ định dạng không hỗ trợ";
-   `status="ok"` và là file ảnh → "📷 cần extract data";
+   là file ảnh (extension .png/.jpg/.jpeg/.gif/.bmp/.webp/.tiff/.tif) → "📷 cần extract data";
    `status="ok"` → trống.
    **Cột này CHỈ để tham khảo — không dùng để xác định data type hay domain.**
 
 Thêm nút **"Xác nhận & Load"** ở cuối bảng.
 
 Chú thích bên dưới bảng:
-- ⚠ TRÙNG = nhiều file cùng loại, sẽ ghép (append) theo domain
+- ⚠ TRÙNG = tên file xuất hiện nhiều lần — có thể bị add 2 lần
 - ? = chưa xác định, cần chọn trước khi load
 - ✗ = định dạng không hỗ trợ, tự động bỏ qua
 - 📷 img_overview = ảnh SEO tool, sẽ hiển thị và đọc data sau khi load
