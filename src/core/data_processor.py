@@ -18,7 +18,7 @@ from src.core.session_store import list_loaded_types, load_data_type
 
 SECTION_REQUIREMENTS: dict[str, list[str]] = {
     "website_overview":   ["my_domain"],
-    "search_behavior":    ["keywords", "aio_domains"],
+    "search_behavior":    ["keywords", "keyword_aio"],
     "ranking_analysis":   ["rankings"],
     "organic_traffic":    ["monthly_traffic"],
     "seo_audit":          ["seo_audit"],
@@ -110,6 +110,7 @@ def _fig_to_b64(fig) -> str:
 def process_website_overview(
     my_domain_df: pd.DataFrame,
     competitor_domains_df: Optional[pd.DataFrame] = None,
+    img_overview_df: Optional[pd.DataFrame] = None,
 ) -> dict:
     if my_domain_df.empty:
         raise ValueError("Không có dữ liệu my_domain")
@@ -151,6 +152,24 @@ def process_website_overview(
         parts.append("<h3>Danh sách đối thủ cạnh tranh</h3>")
         parts.append(_html_table(comp_df))
 
+    if img_overview_df is not None and not img_overview_df.empty:
+        metric_col = _find_col(img_overview_df, "metric", "chỉ số", "key")
+        value_col = _find_col(img_overview_df, "value", "giá trị")
+        domain_col_img = _find_col(img_overview_df, "domain")
+        if metric_col and value_col:
+            parts.append("<h3>Dữ liệu tổng quan từ SEO tool</h3>")
+            if domain_col_img:
+                for d in img_overview_df[domain_col_img].unique():
+                    d_df = img_overview_df[img_overview_df[domain_col_img] == d][[metric_col, value_col]]
+                    d_df = d_df.rename(columns={metric_col: "Chỉ số", value_col: "Giá trị"})
+                    parts.append(f"<h4>{d}</h4>")
+                    parts.append(_html_table(d_df))
+            else:
+                tbl = img_overview_df[[metric_col, value_col]].rename(
+                    columns={metric_col: "Chỉ số", value_col: "Giá trị"}
+                )
+                parts.append(_html_table(tbl))
+
     return {
         "id": "website_overview",
         "title": SECTION_TITLES["website_overview"],
@@ -162,7 +181,7 @@ def process_website_overview(
 
 def process_search_behavior(
     keywords_df: pd.DataFrame,
-    aio_domains_df: pd.DataFrame,
+    keyword_aio_df: pd.DataFrame,
 ) -> dict:
     if keywords_df.empty:
         raise ValueError("Không có dữ liệu keywords")
@@ -218,12 +237,12 @@ def process_search_behavior(
         plt.xticks(rotation=20, ha="right")
         charts.append({"image_b64": _fig_to_b64(fig), "title": "Phân bố Search Intent"})
 
-    # Fix #13: guard aio_domains_df.empty trước khi access columns
+    # Fix #13: guard keyword_aio_df.empty trước khi access columns
     parts.append("<h3>Domains có AIO cao</h3>")
-    if not aio_domains_df.empty:
-        domain_col = _find_col(aio_domains_df, "domain", "tên miền") or aio_domains_df.columns[0]
-        rate_col = _find_col(aio_domains_df, "aio_rate", "rate", "tỷ lệ", "aio rate")
-        aio_df = aio_domains_df.copy()
+    if not keyword_aio_df.empty:
+        domain_col = _find_col(keyword_aio_df, "domain", "tên miền") or keyword_aio_df.columns[0]
+        rate_col = _find_col(keyword_aio_df, "aio_rate", "rate", "tỷ lệ", "aio rate")
+        aio_df = keyword_aio_df.copy()
 
         if rate_col:
             # Fix #4 (AIO): sort bằng _rate numeric, không re-parse string
@@ -242,7 +261,7 @@ def process_search_behavior(
             ax.set_title("Top 10 AIO Domains")
             charts.append({"image_b64": _fig_to_b64(fig), "title": "Top 10 AIO Domains"})
         else:
-            parts.append(_html_table(aio_domains_df.head(10)))
+            parts.append(_html_table(keyword_aio_df.head(10)))
     else:
         parts.append("<p><em>Không có dữ liệu AIO domains.</em></p>")
         insights.append("Chưa có dữ liệu AIO domains")
@@ -256,7 +275,10 @@ def process_search_behavior(
     }
 
 
-def process_ranking_analysis(rankings_df: pd.DataFrame) -> dict:
+def process_ranking_analysis(
+    rankings_df: pd.DataFrame,
+    ranking_aio_df: Optional[pd.DataFrame] = None,
+) -> dict:
     if rankings_df.empty:
         raise ValueError("Không có dữ liệu rankings")
 
@@ -311,6 +333,15 @@ def process_ranking_analysis(rankings_df: pd.DataFrame) -> dict:
     else:
         parts.append(_html_table(rankings_df.head(20)))
         insights = [f"Tổng {len(rankings_df):,} từ khóa có ranking"]
+
+    if ranking_aio_df is not None and not ranking_aio_df.empty:
+        aio_kw_col = _find_col(ranking_aio_df, "keyword", "từ khóa") or ranking_aio_df.columns[0]
+        aio_domain_col = _find_col(ranking_aio_df, "domain", "website")
+        aio_pos_col = _find_col(ranking_aio_df, "aio_position", "position", "rank", "pos")
+        aio_show = [c for c in [aio_kw_col, aio_domain_col, aio_pos_col] if c]
+        parts.append("<h3>Thứ hạng AIO (AI Overview)</h3>")
+        parts.append(_html_table(ranking_aio_df[aio_show].head(20)))
+        insights.append(f"AIO ranking: {len(ranking_aio_df):,} từ khóa")
 
     return {
         "id": "ranking_analysis",
@@ -704,12 +735,16 @@ def build_report_context(session_id: str) -> dict:
         "website_overview": lambda data: process_website_overview(
             data["my_domain"],
             data.get("competitor_domains"),
+            data.get("img_overview"),
         ),
         "search_behavior": lambda data: process_search_behavior(
             data["keywords"],
-            data["aio_domains"],
+            data["keyword_aio"],
         ),
-        "ranking_analysis": lambda data: process_ranking_analysis(data["rankings"]),
+        "ranking_analysis": lambda data: process_ranking_analysis(
+            data["rankings"],
+            data.get("ranking_aio"),
+        ),
         "organic_traffic": lambda data: process_organic_traffic(data["monthly_traffic"]),
         "seo_audit": lambda data: process_seo_audit(data["seo_audit"]),
         "url_traffic_groups": lambda data: process_url_traffic_groups(data["url_traffic"]),
@@ -727,6 +762,10 @@ def build_report_context(session_id: str) -> dict:
         data = {dt: load_data_type(session_id, dt) for dt in SECTION_REQUIREMENTS[section_id]}
         if section_id == "website_overview" and "competitor_domains" in loaded_keys:
             data["competitor_domains"] = load_data_type(session_id, "competitor_domains")
+        if section_id == "website_overview" and "img_overview" in loaded_keys:
+            data["img_overview"] = load_data_type(session_id, "img_overview")
+        if section_id == "ranking_analysis" and "ranking_aio" in loaded_keys:
+            data["ranking_aio"] = load_data_type(session_id, "ranking_aio")
         if section_id == "chatgpt_mentions" and "chatgpt_prompts" in loaded_keys:
             data["chatgpt_prompts"] = load_data_type(session_id, "chatgpt_prompts")
         sections.append(_PROCESSORS[section_id](data))

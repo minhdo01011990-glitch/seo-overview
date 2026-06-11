@@ -12,7 +12,11 @@ import pandas as pd
 from src.core.session_store import VALID_DATA_TYPES
 
 # Data types nhận text input thay vì spreadsheet
-TEXT_DATA_TYPES = {"my_domain", "competitor_domains", "chatgpt_prompts", "analysis_comments"}
+TEXT_DATA_TYPES = {"my_domain", "competitor_domains", "chatgpt_prompts", "analysis_comments", "img_overview"}
+
+IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".tiff", ".tif"}
+
+TEXT_FILE_EXTENSIONS = {".md", ".html", ".htm", ".txt"}
 
 SHEETS_URL_RE = re.compile(r"https?://docs\.google\.com/spreadsheets")
 DRIVE_FOLDER_URL_RE = re.compile(
@@ -20,17 +24,24 @@ DRIVE_FOLDER_URL_RE = re.compile(
 )
 
 # Extensions và MIME types hỗ trợ khi quét folder
-SUPPORTED_EXTENSIONS = {".csv", ".xlsx", ".xls", ".xlsm"}
+SUPPORTED_EXTENSIONS = {
+    ".csv", ".xlsx", ".xls", ".xlsm",
+    ".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".tiff", ".tif",
+    ".md", ".html", ".htm", ".txt",
+}
 SUPPORTED_MIME_TYPES = {
     "application/vnd.google-apps.spreadsheet",
     "text/csv",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     "application/vnd.ms-excel",
     "application/vnd.ms-excel.sheet.macroEnabled.12",
+    "image/png", "image/jpeg", "image/webp", "image/gif", "image/bmp", "image/tiff",
+    "text/markdown", "text/html", "text/plain",
 }
 
 # Heuristic patterns để đoán data_type từ tên file — thứ tự quan trọng (specific trước)
 _DTYPE_PATTERNS: list[tuple[re.Pattern, str]] = [
+    (re.compile(r"img[_\-. ]?overview|overview[_\-. ]?img|screenshot|screen[_\-. ]?shot|tong[_\-. ]?quan[_\-. ]?img", re.I), "img_overview"),
     (re.compile(r"url[_\-. ]?traffic|url[_\-. ]?group|traffic[_\-. ]?url|traffic[_\-. ]?group|url[_\-. ]?labeler|labeler|top[_\-. ]?page|toppage", re.I), "url_traffic"),
     (re.compile(r"monthly[_\-. ]?traffic|traffic[_\-. ]?monthly|organic[_\-. ]?traffic|traffic[_\-. ]?organic|perf[_\-. ]?sub|subdomain[_\-. ]?perf|top[_\-. ]?overview|topoverview", re.I), "monthly_traffic"),
     (re.compile(r"chatgpt[_\-. ]?mention|mention[_\-. ]?chatgpt|brand[_\-. ]?mention", re.I), "chatgpt_mentions"),
@@ -38,10 +49,11 @@ _DTYPE_PATTERNS: list[tuple[re.Pattern, str]] = [
     (re.compile(r"chatgpt[_\-. ]?prompt|prompt[_\-. ]?chatgpt|ai[_\-. ]?prompt", re.I), "chatgpt_prompts"),
     (re.compile(r"referral|backlink|ref[_\-. ]?domain|domain[_\-. ]?ref|referring", re.I), "referral_domains"),
     (re.compile(r"seo[_\-. ]?audit|audit[_\-. ]?seo|audit", re.I), "seo_audit"),
+    (re.compile(r"ranking[_\-. ]?aio|aio[_\-. ]?rank", re.I), "ranking_aio"),
     (re.compile(r"keyword|kw(?:[^a-z]|$)", re.I), "keywords"),
     (re.compile(r"ranking|rank(?:[^a-z]|$)|position|checktop|check[_\-. ]?top", re.I), "rankings"),
     (re.compile(r"competitor|rival|đối[_\-. ]?thủ", re.I), "competitor_domains"),
-    (re.compile(r"aio|ai[_\-. ]?overview", re.I), "aio_domains"),
+    (re.compile(r"aio|ai[_\-. ]?overview|keyword[_\-. ]?aio", re.I), "keyword_aio"),
     (re.compile(r"comment|note|nhận[_\-. ]?xét|analysis[_\-. ]?comment", re.I), "analysis_comments"),
     (re.compile(r"my[_\-. ]?domain|client[_\-. ]?domain", re.I), "my_domain"),
 ]
@@ -132,6 +144,15 @@ def load_text_source(text: str, data_type: str) -> pd.DataFrame:
         return pd.DataFrame({"prompt": lines})
     elif data_type == "analysis_comments":
         return pd.DataFrame({"comment": [text]})
+    elif data_type == "img_overview":
+        rows = []
+        for line in lines:
+            if ":" in line:
+                key, _, val = line.partition(":")
+                rows.append({"metric": key.strip(), "value": val.strip()})
+            elif line:
+                rows.append({"metric": line.strip(), "value": ""})
+        return pd.DataFrame(rows) if rows else pd.DataFrame({"metric": lines, "value": ""})
     else:
         raise ValueError(f"data_type '{data_type}' không hỗ trợ text input")
 
@@ -295,6 +316,32 @@ def load_seo_source(source: str, data_type: str) -> pd.DataFrame:
 
     path = Path(source).expanduser()
     if path.exists():
+        ext_lower = path.suffix.lower()
+        if ext_lower in IMAGE_EXTENSIONS:
+            if data_type != "img_overview":
+                raise ValueError(
+                    f"File ảnh chỉ được load với data_type='img_overview', không phải '{data_type}'."
+                )
+            return pd.DataFrame({
+                "file_path": [str(path)],
+                "file_name": [path.name],
+                "status": ["pending_extraction"],
+            })
+        if ext_lower in TEXT_FILE_EXTENSIONS:
+            text = path.read_text(encoding="utf-8", errors="replace")
+            if ext_lower in {".html", ".htm"}:
+                # Thử parse bảng HTML trước
+                try:
+                    dfs = pd.read_html(text)
+                    if dfs:
+                        df = dfs[0].dropna(how="all")
+                        df.columns = [str(c).strip().lower() for c in df.columns]
+                        return df.reset_index(drop=True)
+                except Exception:
+                    pass
+                # Fallback: bóc thẻ HTML → text
+                text = re.sub(r"<[^>]+>", "", text)
+            return load_text_source(text, data_type)
         return load_local_file(str(path))
 
     if data_type in TEXT_DATA_TYPES:

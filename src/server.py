@@ -40,7 +40,8 @@ Bạn là chuyên gia phân tích SEO, tự động tạo báo cáo SEO tổng q
 | `my_domain` | Domain cần phân tích | text: "example.com" |
 | `competitor_domains` | Danh sách competitor | text: mỗi domain 1 dòng |
 | `keywords` | Google Sheets | keyword (hoặc keywords), volume (hoặc search_volume), intent |
-| `aio_domains` | Google Sheets | domain, aio_rate (hoặc rate) |
+| `keyword_aio` | Google Sheets | domain, aio_rate (hoặc rate) |
+| `ranking_aio` | Google Sheets | keyword, domain, aio_position (hoặc rank, pos) |
 | `rankings` | Google Sheets | keyword, position (hoặc rank, pos), domain |
 | `url_traffic` | Google Sheets | url (hoặc page, path), sessions (hoặc traffic, visits), label (hoặc group) |
 | `monthly_traffic` | Google Sheets | month (hoặc date, period), sessions (hoặc traffic, visits), organic (hoặc organic_sessions) |
@@ -50,6 +51,7 @@ Bạn là chuyên gia phân tích SEO, tự động tạo báo cáo SEO tổng q
 | `chatgpt_mentions` | Google Sheets | brand (hoặc domain), mention_rate (hoặc rate, percentage), prompt |
 | `chatgpt_citations` | Google Sheets | citation_url (hoặc url, domain), count (hoặc citations, frequency) |
 | `analysis_comments` | Text tự do | text tự do (nhận xét analyst) |
+| `img_overview` | File ảnh (.png/.jpg) hoặc text | Ảnh chụp từ Ahrefs/SEMrush, hoặc text 'Metric: value' sau khi extract |
 
 **Lưu ý:** Tên cột phải khớp chính xác (case-sensitive). Nếu xuất từ GA4/GSC, đổi tên cột về dạng lowercase trước khi load.
 

@@ -11,9 +11,10 @@ from pathlib import Path
 SESSION_DIR = Path.home() / ".seo-overview"
 
 VALID_DATA_TYPES = {
-    "my_domain", "competitor_domains", "keywords", "aio_domains", "rankings",
-    "url_traffic", "monthly_traffic", "referral_domains", "seo_audit",
+    "my_domain", "competitor_domains", "keywords", "keyword_aio", "ranking_aio",
+    "rankings", "url_traffic", "monthly_traffic", "referral_domains", "seo_audit",
     "chatgpt_prompts", "chatgpt_mentions", "chatgpt_citations", "analysis_comments",
+    "img_overview",
 }
 
 

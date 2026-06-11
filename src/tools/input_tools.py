@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -15,6 +16,7 @@ import pandas as pd
 
 from src.core.drive_reader import (
     DRIVE_FOLDER_URL_RE,
+    IMAGE_EXTENSIONS,
     SUPPORTED_EXTENSIONS,
     SUPPORTED_MIME_TYPES,
     detect_data_type_from_filename,
@@ -92,7 +94,7 @@ def load_seo_input(
                 pass
 
         save_data_type(session_id, data_type, df)
-        return {
+        result: dict = {
             "status": "ok",
             "data_type": data_type,
             "rows": len(df),
@@ -100,6 +102,28 @@ def load_seo_input(
             "preview": df.head(3).astype(str).to_dict(orient="records"),
             "error": None,
         }
+
+        # Nếu là ảnh chưa extract → đính kèm base64 để Claude dùng visualize đọc
+        if (
+            data_type == "img_overview"
+            and "status" in df.columns
+            and (df["status"] == "pending_extraction").any()
+        ):
+            img_path_str = df["file_path"].iloc[0] if "file_path" in df.columns else None
+            if img_path_str:
+                img_path = Path(img_path_str)
+                if img_path.exists() and img_path.suffix.lower() in IMAGE_EXTENSIONS:
+                    suffix = img_path.suffix.lower()
+                    mime_map = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp"}
+                    result["image_b64"] = base64.b64encode(img_path.read_bytes()).decode()
+                    result["image_mime"] = mime_map.get(suffix, "image/png")
+                    result["image_instruction"] = (
+                        "Dùng visualize để hiển thị ảnh này và đọc thông tin SEO từ ảnh. "
+                        "Sau đó gọi load_seo_input với data_type='img_overview' và source là text "
+                        "dạng 'Metric: value' mỗi dòng để lưu dữ liệu đã extract."
+                    )
+
+        return result
     except Exception as exc:
         return {
             "status": "error",
@@ -194,7 +218,7 @@ def scan_seo_folder(session_id: str, folder_url: str) -> dict:
         if not f["supported"]:
             ext = Path(f["name"]).suffix
             status = "unsupported"
-            reason = f"Định dạng '{ext}' không hỗ trợ. Chỉ hỗ trợ: Google Sheets, .csv, .xlsx."
+            reason = f"Định dạng '{ext}' không hỗ trợ. Hỗ trợ: Google Sheets, .csv, .xlsx, ảnh (.png/.jpg/.gif/.bmp...), .md, .html, .txt."
         elif dtype is None:
             status = "unknown"
             reason = "Không nhận dạng được data type từ tên file. Cần chỉ định thủ công."
