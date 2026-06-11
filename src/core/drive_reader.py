@@ -31,15 +31,15 @@ SUPPORTED_MIME_TYPES = {
 
 # Heuristic patterns để đoán data_type từ tên file — thứ tự quan trọng (specific trước)
 _DTYPE_PATTERNS: list[tuple[re.Pattern, str]] = [
-    (re.compile(r"url[_\-. ]?traffic|url[_\-. ]?group|traffic[_\-. ]?url|traffic[_\-. ]?group", re.I), "url_traffic"),
-    (re.compile(r"monthly[_\-. ]?traffic|traffic[_\-. ]?monthly|organic[_\-. ]?traffic|perf[_\-. ]?sub|subdomain[_\-. ]?perf", re.I), "monthly_traffic"),
+    (re.compile(r"url[_\-. ]?traffic|url[_\-. ]?group|traffic[_\-. ]?url|traffic[_\-. ]?group|url[_\-. ]?labeler|labeler|top[_\-. ]?page|toppage", re.I), "url_traffic"),
+    (re.compile(r"monthly[_\-. ]?traffic|traffic[_\-. ]?monthly|organic[_\-. ]?traffic|traffic[_\-. ]?organic|perf[_\-. ]?sub|subdomain[_\-. ]?perf|top[_\-. ]?overview|topoverview", re.I), "monthly_traffic"),
     (re.compile(r"chatgpt[_\-. ]?mention|mention[_\-. ]?chatgpt|brand[_\-. ]?mention", re.I), "chatgpt_mentions"),
     (re.compile(r"chatgpt[_\-. ]?cit|citation|chatgpt[_\-. ]?domain", re.I), "chatgpt_citations"),
     (re.compile(r"chatgpt[_\-. ]?prompt|prompt[_\-. ]?chatgpt|ai[_\-. ]?prompt", re.I), "chatgpt_prompts"),
     (re.compile(r"referral|backlink|ref[_\-. ]?domain|domain[_\-. ]?ref|referring", re.I), "referral_domains"),
     (re.compile(r"seo[_\-. ]?audit|audit[_\-. ]?seo|audit", re.I), "seo_audit"),
     (re.compile(r"keyword|kw(?:[^a-z]|$)", re.I), "keywords"),
-    (re.compile(r"ranking|rank(?:[^a-z]|$)|position", re.I), "rankings"),
+    (re.compile(r"ranking|rank(?:[^a-z]|$)|position|checktop|check[_\-. ]?top", re.I), "rankings"),
     (re.compile(r"competitor|rival|đối[_\-. ]?thủ", re.I), "competitor_domains"),
     (re.compile(r"aio|ai[_\-. ]?overview", re.I), "aio_domains"),
     (re.compile(r"comment|note|nhận[_\-. ]?xét|analysis[_\-. ]?comment", re.I), "analysis_comments"),
@@ -142,6 +142,23 @@ def detect_data_type_from_filename(filename: str) -> str | None:
     for pattern, dtype in _DTYPE_PATTERNS:
         if pattern.search(stem):
             return dtype
+    return None
+
+
+def detect_domain_from_filename(filename: str, known_domains: list[str]) -> str | None:
+    """Tìm domain name trong tên file dựa vào danh sách known_domains.
+
+    Lấy phần đầu tiên của domain (trước dấu chấm) để khớp, ví dụ:
+      "huge.com.vn" → tìm "huge" trong stem của filename.
+    Trả về domain đầy đủ nếu khớp, None nếu không tìm thấy.
+    """
+    if not known_domains:
+        return None
+    stem = Path(filename).stem.lower()
+    for domain in known_domains:
+        name_part = domain.lower().split(".")[0]
+        if len(name_part) >= 3 and name_part in stem:
+            return domain
     return None
 
 

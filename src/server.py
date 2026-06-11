@@ -92,15 +92,23 @@ def create_seo_session() -> dict:
 
 
 @mcp.tool()
-def load_seo_input(session_id: str, data_type: str, source: str) -> dict:
+def load_seo_input(
+    session_id: str,
+    data_type: str,
+    source: str,
+    domain: Optional[str] = None,
+) -> dict:
     """
     Đọc một loại dữ liệu SEO từ Google Sheets, file CSV/Excel, hoặc text và lưu vào session.
     session_id: từ create_seo_session.
     data_type: một trong 13 giá trị hợp lệ (xem instructions).
     source: Google Sheets URL | đường dẫn file | text ngắn.
+    domain: tên domain đầy đủ nếu file thuộc về 1 domain cụ thể (per-domain files).
+      Khi domain được cung cấp, cột 'domain' sẽ được thêm vào data và tự động ghép
+      (append) với data cùng type đã load trước đó.
     Trả về status, rows, columns, preview 3 hàng đầu.
     """
-    return _load_seo_input(session_id, data_type, source)
+    return _load_seo_input(session_id, data_type, source, domain)
 
 
 @mcp.tool()

@@ -11,11 +11,14 @@ from src.core.data_processor import (
     SECTION_TITLES,
     get_available_sections,
 )
+import pandas as pd
+
 from src.core.drive_reader import (
     DRIVE_FOLDER_URL_RE,
     SUPPORTED_EXTENSIONS,
     SUPPORTED_MIME_TYPES,
     detect_data_type_from_filename,
+    detect_domain_from_filename,
     list_drive_folder,
     list_local_folder,
     load_seo_source,
@@ -23,6 +26,7 @@ from src.core.drive_reader import (
 from src.core.session_store import (
     VALID_DATA_TYPES,
     list_loaded_types,
+    load_data_type,
     new_session,
     save_data_type,
     session_exists,
@@ -38,8 +42,19 @@ def create_seo_session() -> dict:
     }
 
 
-def load_seo_input(session_id: str, data_type: str, source: str) -> dict:
-    """Đọc một data type từ Google Sheets / file / text và lưu vào session."""
+def load_seo_input(
+    session_id: str,
+    data_type: str,
+    source: str,
+    domain: str | None = None,
+) -> dict:
+    """Đọc một data type từ Google Sheets / file / text và lưu vào session.
+
+    domain: tên domain nếu file thuộc về 1 domain cụ thể (per-domain files).
+      - Nếu domain được cung cấp, thêm cột 'domain' vào DataFrame và ghép (append)
+        với data cùng type đã load trước đó thay vì ghi đè.
+      - Nếu domain=None (global files), ghi đè data_type cũ.
+    """
     if not session_exists(session_id):
         return {
             "status": "error",
@@ -65,6 +80,17 @@ def load_seo_input(session_id: str, data_type: str, source: str) -> dict:
 
     try:
         df = load_seo_source(source, data_type)
+
+        if domain:
+            if "domain" not in df.columns:
+                df = df.copy()
+                df["domain"] = domain
+            try:
+                existing = load_data_type(session_id, data_type)
+                df = pd.concat([existing, df], ignore_index=True)
+            except FileNotFoundError:
+                pass
+
         save_data_type(session_id, data_type, df)
         return {
             "status": "ok",
@@ -131,7 +157,17 @@ def scan_seo_folder(session_id: str, folder_url: str) -> dict:
             "has_issues": True,
         }
 
-    # Pass 1: phát hiện data_type và kiểm tra định dạng từng file
+    # Đọc danh sách domains đã load trong session để hỗ trợ detect_domain
+    known_domains: list[str] = []
+    for dtype, col in (("my_domain", "value"), ("competitor_domains", "value")):
+        try:
+            d = load_data_type(session_id, dtype)
+            if col in d.columns:
+                known_domains.extend(d[col].dropna().tolist())
+        except (FileNotFoundError, KeyError):
+            pass
+
+    # Pass 1: phát hiện data_type, domain và kiểm tra định dạng từng file
     enriched: list[dict] = []
     for f in raw_files:
         mime = f.get("mime_type", "")
@@ -139,7 +175,12 @@ def scan_seo_folder(session_id: str, folder_url: str) -> dict:
         is_supported = mime in SUPPORTED_MIME_TYPES or ext in SUPPORTED_EXTENSIONS or (
             not mime and ext in SUPPORTED_EXTENSIONS
         )
-        enriched.append({**f, "detected_type": detect_data_type_from_filename(f["name"]), "supported": is_supported})
+        enriched.append({
+            **f,
+            "detected_type": detect_data_type_from_filename(f["name"]),
+            "detected_domain": detect_domain_from_filename(f["name"], known_domains),
+            "supported": is_supported,
+        })
 
     # Pass 2: tìm trùng lặp theo data_type
     type_to_names: dict[str, list[str]] = defaultdict(list)
@@ -170,6 +211,7 @@ def scan_seo_folder(session_id: str, folder_url: str) -> dict:
             "name": f["name"],
             "url": f["url"],
             "detected_type": dtype,
+            "detected_domain": f.get("detected_domain"),
             "status": status,
             "reason": reason,
         })
