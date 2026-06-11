@@ -54,11 +54,10 @@ seo-overview-plugin-dir = "src.plugin_dir:main"
 packages = ["src"]
 
 [tool.hatch.build.targets.wheel.force-include]
-"skills"         = "src/seo_overview_plugin/skills"
-"agents"         = "src/seo_overview_plugin/agents"
-"templates"      = "src/seo_overview_plugin/templates"
-".claude-plugin" = "src/seo_overview_plugin/.claude-plugin"
-".mcp.json"      = "src/seo_overview_plugin/.mcp.json"
+"skills/seo-overview" = "src/seo_overview_plugin/skills/seo-overview"
+"templates"           = "src/seo_overview_plugin/templates"
+".claude-plugin"      = "src/seo_overview_plugin/.claude-plugin"
+".mcp.json"           = "src/seo_overview_plugin/.mcp.json"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
