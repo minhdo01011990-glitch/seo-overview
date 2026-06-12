@@ -11,8 +11,10 @@ import re
 from pathlib import Path
 from typing import Optional
 
-# Templates dir: src/core/ → ../../templates
-_TEMPLATES_DIR = Path(__file__).parent.parent.parent / "templates"
+# Templates dir: dev layout (project root/templates) hoặc installed layout (seo_overview_plugin/templates)
+_dev_templates = Path(__file__).parent.parent.parent / "templates"
+_pkg_templates = Path(__file__).parent.parent / "seo_overview_plugin" / "templates"
+_TEMPLATES_DIR = _dev_templates if _dev_templates.exists() else _pkg_templates
 
 
 # ── HTML ──────────────────────────────────────────────────────────────────────
