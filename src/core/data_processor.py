@@ -723,6 +723,54 @@ def process_chatgpt_citations(chatgpt_citations_df: pd.DataFrame) -> dict:
     }
 
 
+# ── Analysis comments helpers ────────────────────────────────────────────────
+
+def _parse_analysis_comments(text: str) -> dict:
+    """
+    Parse structured analysis_comments text into a {section_id: content} dict.
+    Format:
+        ## overall_conclusion
+        [text]
+
+        ## website_overview
+        [text]
+        ...
+    If no ## sections are found, entire text is treated as overall_conclusion.
+    """
+    result: dict[str, str] = {}
+    current_key: Optional[str] = None
+    current_lines: list[str] = []
+
+    for line in text.splitlines():
+        if line.startswith("## "):
+            if current_key is not None:
+                result[current_key] = "\n".join(current_lines).strip()
+            current_key = line[3:].strip().lower().replace(" ", "_")
+            current_lines = []
+        else:
+            if current_key is not None:
+                current_lines.append(line)
+
+    if current_key is not None:
+        result[current_key] = "\n".join(current_lines).strip()
+
+    # Fallback: no sections found → treat everything as overall_conclusion
+    if not result and text.strip():
+        result["overall_conclusion"] = text.strip()
+
+    return result
+
+
+def _paragraphs_to_html(text: str) -> str:
+    """Convert plain text (double-newline separated paragraphs) to <p> HTML."""
+    if not text.strip():
+        return ""
+    paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
+    if not paragraphs:
+        paragraphs = [text.strip()]
+    return "".join(f"<p>{p}</p>" for p in paragraphs)
+
+
 # ── Orchestrator ─────────────────────────────────────────────────────────────
 
 def build_report_context(session_id: str) -> dict:
@@ -796,10 +844,26 @@ def build_report_context(session_id: str) -> dict:
         val_col = _find_col(domain_df, "value", "domain") or domain_df.columns[0]
         my_domain = str(domain_df[val_col].iloc[0]).strip()
 
+    # Inject analysis_comments: enrich sections with analyst-written text
+    overall_conclusion = ""
+    if "analysis_comments" in loaded_keys:
+        try:
+            ac_df = load_data_type(session_id, "analysis_comments")
+            if not ac_df.empty and "comment" in ac_df.columns:
+                ac_map = _parse_analysis_comments(str(ac_df["comment"].iloc[0]))
+                overall_conclusion = _paragraphs_to_html(ac_map.get("overall_conclusion", ""))
+                for sec in sections:
+                    raw = ac_map.get(sec["id"], "")
+                    if raw:
+                        sec["analysis_text"] = _paragraphs_to_html(raw)
+        except Exception:
+            pass
+
     return {
         "title": f"Báo cáo SEO Tổng quan — {my_domain}",
         "generated_at": datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M UTC"),
         "my_domain": my_domain,
+        "overall_conclusion": overall_conclusion,
         "sections": sections,
         "missing_sections": missing_sections,
     }

@@ -59,6 +59,51 @@ _DTYPE_PATTERNS: list[tuple[re.Pattern, str]] = [
 ]
 
 
+_SEO_HEADER_KEYWORDS = {
+    "domain", "keyword", "position", "rank", "volume", "top 1", "top 3",
+    "average", "intent", "url", "session", "traffic", "severity", "issue",
+    "month", "organic", "page", "backlink", "spam", "rate", "category",
+}
+
+
+def _auto_detect_real_header(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Fix Semrush / tool exports that embed metadata rows before the real header.
+    Scans the first 10 rows for a row whose values match ≥2 known SEO column terms.
+    If found, rebuilds the DataFrame using that row as the header.
+    """
+    # Heuristic: suspicious if the first column header is very long or contains ":"
+    first_col = str(df.columns[0]).lower()
+    unnamed_count = sum(1 for c in df.columns if str(c).lower().startswith("unnamed"))
+    suspicious = (
+        len(first_col) > 40
+        or ":" in first_col
+        or unnamed_count > len(df.columns) * 0.4
+    )
+    if not suspicious:
+        return df
+
+    for i in range(min(10, len(df))):
+        row_vals = [str(v).strip().lower() for v in df.iloc[i].values]
+        non_empty = [v for v in row_vals if v and v != "nan"]
+        if len(non_empty) < 3:
+            continue
+        matches = sum(
+            1 for v in non_empty
+            for kw in _SEO_HEADER_KEYWORDS if kw in v
+        )
+        if matches >= 2:
+            new_df = df.iloc[i + 1:].copy()
+            new_df.columns = [str(h).strip().lower() for h in df.iloc[i].values]
+            # Drop columns that are still empty / unnamed after re-header
+            new_df = new_df.loc[:, ~new_df.columns.str.startswith("unnamed")]
+            new_df = new_df.loc[:, new_df.columns.str.strip() != ""]
+            new_df = new_df.dropna(how="all").reset_index(drop=True)
+            return new_df
+
+    return df
+
+
 def _get_gspread_client():
     """Tạo gspread client từ service account JSON env var."""
     import gspread
@@ -104,6 +149,9 @@ def load_sheet_as_dataframe(url: str, worksheet_index: int = 0) -> pd.DataFrame:
     if df.empty:
         raise ValueError("Sheet không có dữ liệu")
     df.columns = [str(c).strip().lower() for c in df.columns]
+    df = _auto_detect_real_header(df)
+    if df.empty:
+        raise ValueError("Sheet không có dữ liệu")
     return df.reset_index(drop=True)
 
 
@@ -125,6 +173,9 @@ def load_local_file(path: str) -> pd.DataFrame:
     if df.empty:
         raise ValueError("File không có dữ liệu")
     df.columns = [str(c).strip().lower() for c in df.columns]
+    df = _auto_detect_real_header(df)
+    if df.empty:
+        raise ValueError("File không có dữ liệu")
     return df.reset_index(drop=True)
 
 

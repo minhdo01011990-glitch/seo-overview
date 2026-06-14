@@ -145,6 +145,19 @@
   </div>
 </div>
 
+<!-- OVERALL CONCLUSION (shown when analysis_comments were loaded) -->
+{% if report.overall_conclusion %}
+<div class="max-w-5xl mx-auto mb-8">
+  <div class="card p-6">
+    <div class="section-label">Kết luận tổng quát</div>
+    <div class="analysis-box">
+      <div class="label">Đánh giá tổng thể</div>
+      {{ report.overall_conclusion | safe }}
+    </div>
+  </div>
+</div>
+{% endif %}
+
 <!-- MAIN CONTENT -->
 <div class="max-w-5xl mx-auto">
 
@@ -174,8 +187,13 @@
       </div>
       {% endif %}
 
-      <!-- Key insights -->
-      {% if section.key_insights %}
+      <!-- Analysis text (rich, written by Claude) takes priority over raw key_insights -->
+      {% if section.analysis_text %}
+      <div class="analysis-box mt-4">
+        <div class="label">Phân tích chuyên sâu</div>
+        {{ section.analysis_text | safe }}
+      </div>
+      {% elif section.key_insights %}
       <div class="analysis-box mt-4">
         <div class="label">Key Insights</div>
         {% for insight in section.key_insights %}

@@ -177,6 +177,40 @@ Thêm 2 nút: **"Load thêm dữ liệu"** và **"Xuất báo cáo →"**.
 
 ---
 
+## Giai đoạn 5.5: Viết phân tích chuyên sâu
+
+Sau khi user nhấn "Xuất báo cáo" ở Giai đoạn 5, **TRƯỚC KHI** gọi `generate_seo_report`, thực hiện bước này.
+
+Dựa vào kết quả từ `generate_analysis_outline`, viết phân tích chuyên sâu cho từng section có data và một kết luận tổng quát.
+
+**Format bắt buộc** khi gọi `load_seo_input(session_id, "analysis_comments", "<text>")`:
+
+```
+## overall_conclusion
+[2–4 câu tóm tắt: điểm mạnh, điểm yếu chính, và 1–2 khuyến nghị ưu tiên cao nhất]
+
+## [section_id_1]
+[Đoạn văn phân tích 2–4 câu: diễn giải số liệu, ý nghĩa thực tế, so sánh benchmark nếu có]
+
+## [section_id_2]
+[Tương tự]
+...
+```
+
+`section_id` hợp lệ: `website_overview`, `search_behavior`, `ranking_analysis`, `organic_traffic`, `seo_audit`, `url_traffic_groups`, `chatgpt_mentions`, `chatgpt_citations`.
+
+**Yêu cầu chất lượng phân tích:**
+- Không lặp lại số liệu thô đã có trong bảng — diễn giải ý nghĩa thực tế
+- Nêu rõ mức độ tốt/xấu so với chuẩn SEO (ví dụ: "spam score 83% là ngưỡng nguy hiểm")
+- Câu phân tích cụ thể, actionable — không chung chung
+- Ngôn ngữ: tiếng Việt, giọng chuyên gia tư vấn SEO
+
+Gọi `load_seo_input(session_id, "analysis_comments", "<full_text>")`.
+- Nếu `status: "ok"`: tiếp tục Giai đoạn 6
+- Nếu lỗi: bỏ qua bước này, tiếp tục Giai đoạn 6 (phân tích sẽ không xuất hiện trong báo cáo)
+
+---
+
 ## Giai đoạn 6: Xuất báo cáo
 
 Dùng tool `visualize` để hiển thị form xuất báo cáo:
