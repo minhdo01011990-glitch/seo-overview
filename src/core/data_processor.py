@@ -8,10 +8,23 @@ import unicodedata
 from datetime import datetime, timezone
 from typing import Optional
 
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 import pandas as pd
+
+
+class _LazyPlt:
+    """Delays matplotlib import until first chart is generated (avoids server startup timeout)."""
+    _mod = None
+
+    def __getattr__(self, name):
+        if _LazyPlt._mod is None:
+            import matplotlib
+            matplotlib.use("Agg")
+            import matplotlib.pyplot as _plt
+            _LazyPlt._mod = _plt
+        return getattr(_LazyPlt._mod, name)
+
+
+plt = _LazyPlt()
 
 from src.core.session_store import list_loaded_types, load_data_type
 
